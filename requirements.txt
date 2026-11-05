@@ -1,0 +1,12 @@
+# PyTorch: GPU sürümünü https://pytorch.org adresindeki komutla kurun (CUDA sürümüne göre).
+# Geliştirme ortamı: Python 3.12, torch 2.6.0+cu124, ultralytics 8.4, numpy 2.x, pandas 3.x.
+torch>=2.2
+numpy>=1.26
+pandas>=2.1
+pyarrow>=14.0
+scipy>=1.11
+pillow>=10.0
+pyyaml>=6.0
+matplotlib>=3.8
+# YOLOv8n karşılaştırması, video yardımcıları ve ölçüm aracı için (opencv ve torchvision bununla gelir)
+ultralytics>=8.1

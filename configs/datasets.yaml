@@ -1,0 +1,205 @@
+# Veri seti dönüştürme ayarları — tools/convert_to_yolo.py tarafından okunur.
+# Göreli yollar proje köküne göredir.
+#
+# ÖNEMLİ: Aşağıdaki klasör adları ve regex'ler, setlerin yayımlanmış belgelerine göre
+# yapılmış TAHMİNLERDİR. Her seti indirdikten sonra şu komutla gerçek yapıyı kontrol et
+# ve gerekirse yolları düzelt:
+#     python tools/convert_to_yolo.py inspect data/raw/<set>
+# Ardından önce --dry-run ile çalıştır; "EŞLENMEMİŞ sınıflar" uyarısı çıkarsa
+# o sınıfı ilgili kaynağın `classes` listesine ekle.
+
+output_root: data/yolo            # çıktı: data/yolo/rgb/..., data/yolo/thermal/...
+output_classes: [person]          # tek sınıf
+
+# Lisansı bu listede olmayan setler atlanır (--allow-any-license ile zorlanabilir).
+# Amaç: ana eğitim verisinde yalnızca ticari kullanıma da izin veren lisanslar olsun.
+license_policy:
+  allow: [CC-BY-4.0, CC0-1.0, MIT, CDLA-Permissive-1.0, own]
+
+split_ratios: {val: 0.10, test: 0.10}   # kaynak kendi split'ini vermiyorsa kullanılır
+min_groups_for_group_split: 10          # daha az video/klasör varsa görüntü bazlı böl
+min_box_px: 2                           # bundan küçük kutular atılır
+keep_empty_images: true                 # insansız kareler negatif örnek olarak kalsın
+ignore_region_policy: mask              # crowd / ignored bölgeler: mask (gri boya) | drop (sadece etiketi at)
+
+# Sınıf eşleme değerleri:
+#   person         -> çıktıda person
+#   ignore_region  -> etiketlenmez; ignore_region_policy'e göre maskelenir
+#   null           -> kutu atılır (araba, hayvan vb.)
+# Anahtarlar büyük/küçük harfe duyarsız; YOLO/BIRDSAI için sınıf id'si ("0", "1") yazılır.
+
+datasets:
+
+  # ------------------------------------------------------------------ RGB + TERMAL
+  wisard:
+    # 01.10.2026: indirildi (WiSARDv1.zip, 43,5 GB). Yapı doğrulandı:
+    #   80 uçuş klasörü, düz: <tarih>_<yer>_<kamera>_{VIS|IR}[_n]/<kare>.jpg + .txt (YOLO, sınıf 0 = insan).
+    #   VIS: 39 klasör, 1920x1080 – 4096x2160 RGB. IR: 41 klasör, 640x512 (RGB kaydedilmiş, kanallar ~aynı → gri ton).
+    #   Her klasörde count.txt (özet; etiket değil). 76 klasörde etiketlerden sayılan kutu = count.txt ile birebir
+    #   (toplam 74.204 kutu; hatalı satır yok).
+    #   VIS/IR klasör çiftleri aynı anın iki modalitesi; modaliteler ayrı eğitildiği için çift sayım yok.
+    # DİKKAT — ETİKETSİZ KLASÖRLER: 12 klasörde görüntü başına etiket yok ve count.txt "number of humans: 0" diyor,
+    #   AMA görüntülerde insan var (ör. 210812_Hannegan_Enterprise_VIS_0053: patikada yürüyüşçüler; gözle doğrulandı).
+    #   Yani bunlar boş değil, ETİKETLENMEMİŞ. Negatif örnek olarak KULLANILMAZ (insanlara "arka plan" öğretirdi).
+    #   Dönüştürücü etiket dosyası olmayan görüntüleri zaten atlar; ayrıca aşağıda açıkça dışlandı.
+    # BÖLME: uçuş bazında, elle (aynı uçuşun parçaları farklı kümelere düşmesin; WiSARD'da uçuşlar birden çok klasöre
+    #   bölünmüş). Test = 220109_Baker_Enterprise (kış, farklı kamera, iki modalite). Kalan her şey train.
+    license: MIT
+    url: https://sites.google.com/uw.edu/wisard/
+    sources:
+      - name: rgb
+        modality: rgb
+        format: yolo
+        image_root: data/raw/wisard
+        include_regex: '^[^/]*_VIS(_[^/]*)?/'
+        exclude_regex: &wisard_unlabeled '^(210529_Carnation_Enterprise_IR_0026|210812_Hannegan_Enterprise_(IR|VIS)_\d+|210924_FHL_Enterprise_IR_(0127|0408|0410)|210924_FHL_Enterprise_VIS_(0403|0409|0564|0566))/'
+        split_regex: {test: '^220109_Baker_Enterprise_', val: '^210529_Carnation_Enterprise_', train: '.'}
+        classes: {"0": person}
+      - name: thermal
+        modality: thermal
+        format: yolo
+        image_root: data/raw/wisard
+        include_regex: '^[^/]*_IR(_[^/]*)?/'
+        exclude_regex: *wisard_unlabeled
+        split_regex: {test: '^220109_Baker_Enterprise_', val: '^200929_Karen_', train: '.'}
+        classes: {"0": person}
+
+  rgbtdroneperson:
+    license: CC-BY-4.0
+    url: https://nnnnerd.github.io/RGBTDronePerson/
+    sources:
+      # Doğrulandı (29.09.2026): {train,val}/annotation/*.xml (VOC) + {train,val}/{thermal,visible}/*.jpg, 640x512.
+      # Resmi bölme: train 4900, val 1225. Sınıflar: person, rider, crowd, uncertain; crowd ve uncertain maskelenir.
+      # Termal görüntüler RGB olarak kaydedilmiş ama üç kanal aynı (gerçek gri ton, sahte renk yok).
+      #
+      # DİKKAT: xml etiketleri TERMAL görüntüye göre. Görünür görüntü pikselce hizalı değil (kişiler ~5-15 px
+      # kayık; results/data_check/rgbt_hizalama.jpg). Bu yüzden RGB için xml kullanılmaz; sadece görünür
+      # görüntüye göre ayrıca etiketlenmiş alt küme (annotations/sub_train_visible.json, 1013 görüntü) kullanılır.
+      # Alt küme tek klasörde olduğundan bölme 100 karelik bloklarla yapılır (ardışık kareler sızmasın).
+      - name: rgb_sub_train
+        modality: rgb
+        format: coco
+        annotation: data/raw/rgbtdroneperson/annotations/sub_train_visible.json
+        image_root: data/raw/rgbtdroneperson/train/visible
+        group_regex: '^(\d{3})\d{2}\.'
+        classes: &rgbt_classes {person: person, rider: person, crowd: ignore_region, uncertain: ignore_region}
+      - name: thermal_train
+        modality: thermal
+        format: voc
+        annotation_root: data/raw/rgbtdroneperson/train/annotation
+        image_root: data/raw/rgbtdroneperson/train/thermal
+        split: train
+        classes: *rgbt_classes
+      - name: thermal_val
+        modality: thermal
+        format: voc
+        annotation_root: data/raw/rgbtdroneperson/val/annotation
+        image_root: data/raw/rgbtdroneperson/val/thermal
+        split: val
+        classes: *rgbt_classes
+
+  # ------------------------------------------------------------------ SADECE TERMAL
+  hit_uav:
+    # Veri deposundaki LICENSE dosyası CC0 1.0 (Zenodo kaydı da cc-zero). Makale CC BY 4.0.
+    license: CC0-1.0
+    url: https://github.com/suojiashun/HIT-UAV-Infrared-Thermal-Dataset
+    sources:
+      # Doğrulandı (29.09.2026): normal_xml/{Annotations,JPEGImages,ImageSets/Main}. Görüntüler 640x512, L (8-bit).
+      # normal_xml (eksene hizalı kutular) kullanılır; rotate_xml desteklenmez.
+      # Resmi bölme listeleri: train 2029, val 290, test 579.
+      - name: thermal
+        modality: thermal
+        format: voc
+        annotation_root: data/raw/hit_uav/normal_xml/Annotations
+        image_root: data/raw/hit_uav/normal_xml/JPEGImages
+        split_lists: {train: data/raw/hit_uav/normal_xml/ImageSets/Main/train.txt,
+                      val: data/raw/hit_uav/normal_xml/ImageSets/Main/val.txt,
+                      test: data/raw/hit_uav/normal_xml/ImageSets/Main/test.txt}
+        classes: {person: person, car: null, bicycle: null, othervehicle: null, dontcare: ignore_region}
+
+  birdsai:
+    license: CDLA-Permissive-1.0
+    url: https://lila.science/datasets/conservationdrones
+    sources:
+      # Gece termal video; ardışık kareler çok benzer, frame_stride ile seyreltiliyor.
+      # CSV sınıf sütunu: 0 = hayvan, 1 = insan.
+      - name: train_real
+        modality: thermal
+        format: birdsai
+        root: data/raw/birdsai/TrainReal
+        frame_offset: 0          # CSV kare no'su ile görüntü adı kaymışsa (ör. 1'den başlıyorsa) 1 yap
+        frame_stride: 5
+        drop_noisy: false
+        classes: {"1": person, "0": null}
+      - name: test_real
+        modality: thermal
+        format: birdsai
+        root: data/raw/birdsai/TestReal
+        split: test
+        frame_offset: 0
+        # Bu videoda görüntüler 87. kareden başlıyor, CSV 0'dan. Kutu içi/çevre parlaklık farkı
+        # ölçülerek doğrulandı (29.09.2026): kayma 0'da -0,4, 87'de +11,2 (en yüksek).
+        frame_offset_per_video: {"0000000011_0000000000": -87}
+        frame_stride: 5
+        classes: {"1": person, "0": null}
+      - name: train_sim           # AirSim sentetik veri — istersen aç
+        enabled: false
+        modality: thermal
+        format: birdsai
+        root: data/raw/birdsai/TrainSimulation
+        split: train
+        frame_stride: 10
+        classes: {"1": person, "0": null}
+
+  # ------------------------------------------------------------------ SADECE RGB
+  seadronessee:
+    enabled: false               # sadece deniz/sahil senaryosu varsa aç
+    license: CC0-1.0
+    url: https://seadronessee.cs.uni-tuebingen.de/
+    sources:
+      - name: rgb
+        modality: rgb
+        format: coco
+        annotation: [data/raw/seadronessee/annotations/instances_train.json,
+                     data/raw/seadronessee/annotations/instances_val.json]
+        split_of_annotation: {instances_train.json: train, instances_val.json: val}
+        image_root: data/raw/seadronessee/images
+        # ODv2 kategori adları doğrulanmadı — inspect ile kontrol et
+        classes: {swimmer: person, floater: person, "swimmer on boat": person, "floater on boat": person,
+                  ignored: ignore_region, boat: null, jetski: null, life_jacket: null,
+                  life_saving_appliances: null, buoy: null}
+
+  # ------------------------------------------------------------------ SADECE TEST (NC lisans)
+  # Varsayılan lisans politikası bunu atlar. Yalnızca karşılaştırma (benchmark) için:
+  #   python tools/convert_to_yolo.py convert --only visdrone --allow-any-license
+  # Eğitim verisine KARIŞTIRMA.
+  visdrone:
+    license: CC-BY-NC-SA-3.0
+    url: https://github.com/VisDrone/VisDrone-Dataset
+    sources:
+      - name: val
+        modality: rgb
+        format: visdrone
+        root: data/raw/visdrone/VisDrone2019-DET-val
+        split: test
+        # 0 ignored, 1 pedestrian, 2 people, 3 bicycle, 4 car, 5 van, 6 truck,
+        # 7 tricycle, 8 awning-tricycle, 9 bus, 10 motor, 11 others
+        classes: {"0": ignore_region, "1": person, "2": person, "3": null, "4": null, "5": null,
+                  "6": null, "7": null, "8": null, "9": null, "10": null, "11": null}
+
+  # ------------------------------------------------------------------ KENDİ VERİN
+  own_tr:
+    enabled: false               # veri toplayıp YOLO formatında etiketleyince aç
+    license: own
+    sources:
+      - name: rgb
+        modality: rgb
+        format: yolo
+        image_root: data/raw/own_tr/rgb
+        # Kendi verini tamamen test için ayırmak istersen: split: test
+        classes: {"0": person}
+      - name: thermal
+        modality: thermal
+        format: yolo
+        image_root: data/raw/own_tr/thermal
+        classes: {"0": person}

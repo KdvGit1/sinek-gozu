@@ -1,0 +1,33 @@
+{
+  "neurons": 47291,
+  "cell_types": 682,
+  "columns": 796,
+  "output_neurons(boundary)": 4117,
+  "photoreceptors": {
+    "R1-6": 3437,
+    "R7": 659,
+    "R8": 655
+  },
+  "R1-6_assigned_to_column": 3399,
+  "columns_with_R1-6": 784,
+  "columns_with_R7": 659,
+  "columns_with_R8": 654,
+  "neurons_unknown_sign": 30,
+  "types_low_nt_agreement(<0.7)": 10,
+  "modulator_sign": 1,
+  "threshold_syn": 5,
+  "edges": 778898,
+  "synapses": 8427847,
+  "autapses": 0,
+  "alpha_groups": 7615,
+  "alpha_groups_type_pair": 6964,
+  "alpha_groups_rare": 651,
+  "rare_pair_syn": 50,
+  "edges_in_rare_groups_pct": 3.5,
+  "synapses_in_rare_groups_pct": 2.306,
+  "excitatory_edges_pct": 59.97,
+  "neurons_without_input": 3925,
+  "spectral_radius_abs_syn": 2351.35,
+  "source": "FlyWire v783 (CC BY 4.0)",
+  "built": "2026-09-28"
+}

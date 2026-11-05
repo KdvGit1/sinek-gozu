@@ -1,0 +1,49 @@
+{
+  "neurons": 100473,
+  "neurons_by_eye": {
+    "L": 47530,
+    "R": 47291,
+    "-": 5652
+  },
+  "central_neurons": 5394,
+  "central_by_side": {
+    "left": 2707,
+    "right": 2687
+  },
+  "cell_types": 2467,
+  "eye_columns": 796,
+  "left_columns_mapped": 772,
+  "left_columns_total": 785,
+  "left_neurons_with_column": 24718,
+  "right_neurons_with_column": 26314,
+  "output_neurons(boundary)": 8440,
+  "photoreceptors": {
+    "R1-6_R": 3437,
+    "R1-6_L": 3735,
+    "R7_R": 659,
+    "R7_L": 595,
+    "R8_R": 655,
+    "R8_L": 625
+  },
+  "neurons_unknown_sign": 77,
+  "central_filter": {
+    "min_syn_from_vpn": 20,
+    "min_frac_from_ol": 0.1
+  },
+  "threshold_syn": 5,
+  "edges": 1693309,
+  "synapses": 18917609,
+  "autapses": 0,
+  "alpha_groups": 24273,
+  "alpha_groups_type_pair": 21896,
+  "alpha_groups_rare": 2377,
+  "rare_pair_syn": 50,
+  "edges_in_rare_groups_pct": 6.81,
+  "synapses_in_rare_groups_pct": 4.958,
+  "excitatory_edges_pct": 61.47,
+  "neurons_without_input": 9136,
+  "spectral_radius_abs_syn": 2362.23,
+  "edges_between_lobes_direct": 1340,
+  "source": "FlyWire v783 (CC BY 4.0)",
+  "built": "2026-10-05"
+}

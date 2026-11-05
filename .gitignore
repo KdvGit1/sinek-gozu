@@ -1,0 +1,36 @@
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ipynb_checkpoints/
+.venv/
+venv/
+
+# Veri setleri ve ara çıktılar (depoya girmez)
+data/raw/
+data/downloads/
+data/yolo/
+data/video/
+data/connectome/flywire_783/
+results/
+runs/
+tespitler/
+
+# Büyük model dosyaları: yalnız agirliklar/ altındaki sıkıştırılmış ağırlıklar depoda
+*.pt
+*.pth
+*.onnx
+!agirliklar/*.pt
+
+# Editör / sistem
+.vscode/
+.idea/
+.claude/
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Gizli bilgiler
+.env
+*.key
+*.pem
